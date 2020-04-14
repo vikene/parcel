@@ -109,13 +109,14 @@ export default new Packager({
         let resolved = bundleGraph.getDependencyResolution(node.value, bundle);
         if (
           resolved &&
-          resolved.type !== 'js' &&
+          !(resolved.type === 'js' || resolved.type === 'json') &&
           !stubsWritten.has(resolved.id)
         ) {
           // if this is a reference to another javascript asset, we should not include
           // its output, as its contents should already be loaded.
           invariant(!bundle.hasAsset(resolved));
           wrapped += JSON.stringify(resolved.id) + ':[function() {},{}]';
+          stubsWritten.add(resolved.id);
         } else {
           return;
         }
@@ -124,8 +125,8 @@ export default new Packager({
       if (node.type === 'asset') {
         let asset = node.value;
         invariant(
-          asset.type === 'js',
-          'all assets in a js bundle must be js assets',
+          asset.type === 'js' || asset.type === 'json',
+          'All assets in a JS bundle must be JS or JSON assets',
         );
 
         let deps = {};
@@ -138,7 +139,10 @@ export default new Packager({
         }
 
         let {code, mapBuffer} = results[i];
-        let output = code || '';
+        let output =
+          asset.type === 'json'
+            ? `module.exports = JSON.parse(${JSON.stringify(code)})`
+            : code || '';
         wrapped +=
           JSON.stringify(asset.id) +
           ':[function(require,module,exports) {\n' +
